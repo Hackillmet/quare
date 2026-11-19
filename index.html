@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#171b21">
+  <title>MakwinIT — Silver Parallax Pass</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<main class="scene">
+  <div class="eyebrow">MAKWINIT · DIGITAL PASS</div>
+  <div class="stage" id="stage">
+    <div class="ticket" id="ticket" role="button" tabindex="0" aria-pressed="false" aria-label="Перевернуть карточку MakwinIT">
+      <div class="side front">
+        <div class="art depth" data-depth=".25"></div>
+        <div class="shade"></div>
+        <div class="front-content depth" data-depth=".9">
+          <div class="brand-row">
+            <div class="brand-lockup"><div class="brand-mark">M</div><div class="brand-name">MAKWINIT</div></div>
+            <div class="pass-tag">DRIVE YOUR FUTURE</div>
+          </div>
+          <div class="front-title">PATH TO<span>GOALS.</span></div>
+          <div class="front-meta"><span>STAY FOCUSED · KEEP MOVING</span><b>№ 0042</b></div>
+        </div>
+        <div class="glare" id="glare"></div>
+      </div>
+      <div class="side back">
+        <div class="back-kicker">SCAN TO CONNECT</div>
+        <div class="qr-wrap"><img id="qr" src="./telegram-qr.png" alt="QR-код Telegram MakwinIT"></div>
+        <div class="back-handle">@makwinit</div>
+        <div class="back-caption">OPEN TELEGRAM</div>
+      </div>
+    </div>
+  </div>
+  <div class="flip-hint">Наведите курсор · <span>нажмите, чтобы перевернуть</span></div>
+</main>
+<script>
+(() => {
+  const stage = document.getElementById('stage');
+  const ticket = document.getElementById('ticket');
+  const glare = document.getElementById('glare');
+  const layers = [...ticket.querySelectorAll('.depth')].map(el => ({el, depth:Number(el.dataset.depth)}));
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const read = (name, fallback) => getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+  const number = (name, fallback) => parseFloat(read(name, String(fallback)));
+  const pair = (name, fallback) => read(name, fallback).split(/\s+/).map(Number);
+  const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
+  const spring = (x, k, c) => ({x, v:0, t:x, k, c:reduce ? 2*Math.sqrt(k) : c});
+  const tilt = number('--ticket-tilt', 14);
+  const depth = number('--ticket-depth', 12);
+  const flipSpring = pair('--ticket-flip', '170 15');
+  const rx = spring(0,220,18);
+  const ry = spring(0,220,18);
+  const flip = spring(0,flipSpring[0],flipSpring[1]);
+  const glareSpring = spring(0,300,26);
+  const lift = spring(1,300,18);
+  let hovered=false, flipped=false, clock=0, gx=50, gy=30, last=performance.now();
+
+  function step(s, dt){
+    const a=-s.k*(s.x-s.t)-s.c*s.v;
+    s.v+=a*dt;
+    s.x+=s.v*dt;
+  }
+  stage.addEventListener('pointermove', event => {
+    const rect=stage.getBoundingClientRect();
+    const nx=clamp((event.clientX-rect.left)/rect.width*2-1,-1,1);
+    const ny=clamp((event.clientY-rect.top)/rect.height*2-1,-1,1);
+    gx=(nx+1)*50; gy=(ny+1)*50;
+    hovered=true;
+    rx.t=-ny*tilt;
+    ry.t=nx*tilt;
+    glareSpring.t=1;
+  });
+  stage.addEventListener('pointerleave', () => {hovered=false;glareSpring.t=.25;});
+  stage.addEventListener('pointerdown', () => {lift.t=.975;});
+  window.addEventListener('pointerup', () => {lift.t=1;});
+
+  function toggle(){
+    flipped=!flipped;
+    flip.t=flipped?180:0;
+    lift.v+=1.25;
+    ticket.setAttribute('aria-pressed',String(flipped));
+  }
+  ticket.addEventListener('click',toggle);
+  ticket.addEventListener('keydown',event=>{
+    if(event.key==='Enter'||event.key===' '){event.preventDefault();toggle();}
+  });
+
+  function frame(now){
+    const dt=Math.min((now-last)/1000,1/30);last=now;clock+=dt;
+    if(!hovered){rx.t=reduce?0:Math.sin(clock*.9)*4;ry.t=reduce?0:Math.cos(clock*.7)*7;}
+    [rx,ry,flip,glareSpring,lift].forEach(s=>step(s,dt));
+    ticket.style.transform=`rotateX(${rx.x}deg) rotateY(${ry.x+flip.x}deg) scale(${lift.x})`;
+    const ox=ry.x/tilt, oy=-rx.x/tilt;
+    layers.forEach(layer=>{
+      layer.el.style.transform=`translate(${ox*depth*layer.depth}px,${oy*depth*layer.depth}px)`;
+    });
+    glare.style.setProperty('--g',clamp(glareSpring.x,0,1));
+    glare.style.setProperty('--gx',(hovered?gx:50+ox*30)+'%');
+    glare.style.setProperty('--gy',(hovered?gy:30+oy*30)+'%');
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+  <script src="./script.js"></script>
+</body>
+</html>
